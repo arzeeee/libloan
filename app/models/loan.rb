@@ -39,7 +39,6 @@ class Loan < ApplicationRecord
     self.borrowed_at ||= Time.current
     self.status ||= 'active'
     
-    # Default due date to 30 days from borrowed_at if not set
     if due_date.blank? && borrowed_at.present?
       self.due_date = borrowed_at + 30.days
     end
@@ -71,8 +70,5 @@ class Loan < ApplicationRecord
   end
 
   def one_book_per_loan
-    # This validation ensures one book per loan transaction
-    # The business rule is enforced by the model structure itself
-    # since each loan record represents one book-borrower relationship
   end
 end
