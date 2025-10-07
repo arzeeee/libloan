@@ -2,7 +2,7 @@ class Book < ApplicationRecord
   has_many :loans, dependent: :destroy
   has_many :borrowers, through: :loans
 
-  validates :title, presence: true
+  validates :title, presence: true, uniqueness: true
   validates :isbn, presence: true, uniqueness: true
   validates :stock, presence: true, numericality: { greater_than_or_equal_to: 0 }
 
@@ -17,6 +17,6 @@ class Book < ApplicationRecord
   private
 
   def active_loans
-    loans.where(status: 'active')
+    loans.where(status: ['active', 'overdue'])
   end
 end
