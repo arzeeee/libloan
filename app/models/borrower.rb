@@ -7,7 +7,7 @@ class Borrower < ApplicationRecord
   validates :email, presence: true, format: { with: URI::MailTo::EMAIL_REGEXP }
 
   def has_active_loan?
-    loans.where(status: 'active').exists?
+    loans.where(status: ['active', 'overdue']).exists?
   end
 
   def can_borrow?
@@ -15,6 +15,6 @@ class Borrower < ApplicationRecord
   end
 
   def active_loan
-    loans.find_by(status: 'active')
+    loans.find_by(status: ['active', 'overdue'])
   end
 end

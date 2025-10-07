@@ -21,11 +21,11 @@ class Loan < ApplicationRecord
   end
 
   def overdue?
-    status == 'active' && due_date < Time.current
+    (status == 'active' || status == 'overdue') && due_date < Time.current
   end
 
   def days_overdue
-    return 0 unless overdue?
+    return 0 unless due_date < Time.current && (status == 'active' || status == 'overdue')
     (Time.current.to_date - due_date.to_date).to_i
   end
 

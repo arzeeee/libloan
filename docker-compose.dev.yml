@@ -1,0 +1,28 @@
+version: "3.8"
+
+services:
+  web:
+    build:
+      context: .
+      target: base  # Use the base stage for development
+    ports:
+      - "3000:3000"
+    volumes:
+      - .:/rails
+      - bundle_cache:/usr/local/bundle
+    environment:
+      - RAILS_ENV=development
+      - BUNDLE_PATH=/usr/local/bundle
+    stdin_open: true
+    tty: true
+    command: bash -c "bundle install && rails db:prepare && rails server -b 0.0.0.0"
+    depends_on:
+      - db
+
+  db:
+    image: sqlite3:latest
+    # SQLite doesn't need a separate container, but keeping this for future PostgreSQL upgrade
+    # For now, we'll use file-based SQLite
+
+volumes:
+  bundle_cache:

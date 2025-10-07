@@ -1,0 +1,471 @@
+<div class="container">
+  <h1 class="my-4">Library Loan Management System</h1>
+  
+  <div class="row">
+    <!-- Books Section -->
+    <div class="col-md-12 mb-4">
+      <div class="card">
+        <div class="card-header d-flex justify-content-between align-items-center">
+          <h3>Books</h3>
+          <button class="btn btn-primary" onclick="showAddBookModal()">Add Book</button>
+        </div>
+        <div class="card-body">
+          <table class="table table-striped" id="booksTable">
+            <thead>
+              <tr>
+                <th>Title</th>
+                <th>ISBN</th>
+                <th>Stock</th>
+                <th>Available</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- Borrowers Section -->
+    <div class="col-md-12 mb-4">
+      <div class="card">
+        <div class="card-header d-flex justify-content-between align-items-center">
+          <h3>Borrowers</h3>
+          <button class="btn btn-primary" onclick="showAddBorrowerModal()">Add Borrower</button>
+        </div>
+        <div class="card-body">
+          <table class="table table-striped" id="borrowersTable">
+            <thead>
+              <tr>
+                <th>Name</th>
+                <th>ID Card Number</th>
+                <th>Email</th>
+                <th>Has Active Loan</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- Loans Section -->
+    <div class="col-md-12 mb-4">
+      <div class="card">
+        <div class="card-header d-flex justify-content-between align-items-center">
+          <h3>Loans</h3>
+          <button class="btn btn-success" onclick="showBorrowBookModal()">Borrow Book</button>
+        </div>
+        <div class="card-body">
+          <ul class="nav nav-tabs mb-3">
+            <li class="nav-item">
+              <a class="nav-link active" data-bs-toggle="tab" href="#active-loans">Active</a>
+            </li>
+            <li class="nav-item">
+              <a class="nav-link" data-bs-toggle="tab" href="#overdue-loans">Overdue</a>
+            </li>
+            <li class="nav-item">
+              <a class="nav-link" data-bs-toggle="tab" href="#returned-loans">Returned</a>
+            </li>
+          </ul>
+          <div class="tab-content">
+            <div class="tab-pane fade show active" id="active-loans">
+              <table class="table table-striped">
+                <thead>
+                  <tr>
+                    <th>Book</th>
+                    <th>Borrower</th>
+                    <th>Borrowed At</th>
+                    <th>Due Date</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="activeLoansTable"></tbody>
+              </table>
+            </div>
+            <div class="tab-pane fade" id="overdue-loans">
+              <table class="table table-striped">
+                <thead>
+                  <tr>
+                    <th>Book</th>
+                    <th>Borrower</th>
+                    <th>Borrowed At</th>
+                    <th>Due Date</th>
+                    <th>Days Overdue</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="overdueLoansTable"></tbody>
+              </table>
+            </div>
+            <div class="tab-pane fade" id="returned-loans">
+              <table class="table table-striped">
+                <thead>
+                  <tr>
+                    <th>Book</th>
+                    <th>Borrower</th>
+                    <th>Borrowed At</th>
+                    <th>Returned At</th>
+                  </tr>
+                </thead>
+                <tbody id="returnedLoansTable"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modals will be included via JavaScript -->
+<div id="modalContainer"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+  // Load data on page load
+  document.addEventListener('DOMContentLoaded', function() {
+    loadBooks();
+    loadBorrowers();
+    loadLoans();
+  });
+
+  // Fetch and display books
+  async function loadBooks() {
+    const response = await fetch('/api/books');
+    const books = await response.json();
+    const tbody = document.getElementById('booksTable').querySelector('tbody');
+    tbody.innerHTML = books.map(book => `
+      <tr>
+        <td>${book.title}</td>
+        <td>${book.isbn}</td>
+        <td>${book.stock}</td>
+        <td>${book.available_stock} ${book.available ? '✓' : '✗'}</td>
+        <td>
+          <button class="btn btn-sm btn-info" onclick="editBook(${book.id})">Edit</button>
+          <button class="btn btn-sm btn-danger" onclick="deleteBook(${book.id})">Delete</button>
+        </td>
+      </tr>
+    `).join('');
+  }
+
+  // Fetch and display borrowers
+  async function loadBorrowers() {
+    const response = await fetch('/api/borrowers');
+    const borrowers = await response.json();
+    const tbody = document.getElementById('borrowersTable').querySelector('tbody');
+    tbody.innerHTML = borrowers.map(borrower => `
+      <tr>
+        <td>${borrower.name}</td>
+        <td>${borrower.id_card_number}</td>
+        <td>${borrower.email}</td>
+        <td>${borrower.has_active_loan ? 'Yes' : 'No'}</td>
+        <td>
+          <button class="btn btn-sm btn-info" onclick="editBorrower(${borrower.id})">Edit</button>
+          <button class="btn btn-sm btn-danger" onclick="deleteBorrower(${borrower.id})">Delete</button>
+        </td>
+      </tr>
+    `).join('');
+  }
+
+  // Fetch and display loans
+  async function loadLoans() {
+    const response = await fetch('/api/loans');
+    const loans = await response.json();
+    
+    const activeLoans = loans.filter(l => l.status === 'active' && !l.overdue);
+    const overdueLoans = loans.filter(l => l.status === 'overdue' || l.overdue);
+    const returnedLoans = loans.filter(l => l.status === 'returned');
+    
+    document.getElementById('activeLoansTable').innerHTML = activeLoans.map(loan => `
+      <tr>
+        <td>${loan.book.title}</td>
+        <td>${loan.borrower.name}</td>
+        <td>${new Date(loan.borrowed_at).toLocaleDateString()}</td>
+        <td>${new Date(loan.due_date).toLocaleDateString()}</td>
+        <td>
+          <button class="btn btn-sm btn-success" onclick="returnBook(${loan.id})">Return</button>
+        </td>
+      </tr>
+    `).join('');
+    
+    document.getElementById('overdueLoansTable').innerHTML = overdueLoans.map(loan => `
+      <tr class="table-danger">
+        <td>${loan.book.title}</td>
+        <td>${loan.borrower.name}</td>
+        <td>${new Date(loan.borrowed_at).toLocaleDateString()}</td>
+        <td>${new Date(loan.due_date).toLocaleDateString()}</td>
+        <td>${loan.days_overdue} days</td>
+        <td>
+          <button class="btn btn-sm btn-success" onclick="returnBook(${loan.id})">Return</button>
+        </td>
+      </tr>
+    `).join('');
+    
+    document.getElementById('returnedLoansTable').innerHTML = returnedLoans.map(loan => `
+      <tr>
+        <td>${loan.book.title}</td>
+        <td>${loan.borrower.name}</td>
+        <td>${new Date(loan.borrowed_at).toLocaleDateString()}</td>
+        <td>${new Date(loan.returned_at).toLocaleDateString()}</td>
+      </tr>
+    `).join('');
+  }
+
+  // Add Book
+  function showAddBookModal() {
+    document.getElementById('modalContainer').innerHTML = `
+      <div class="modal fade show" style="display: block;" tabindex="-1">
+        <div class="modal-dialog">
+          <div class="modal-content">
+            <div class="modal-header">
+              <h5 class="modal-title">Add Book</h5>
+              <button type="button" class="btn-close" onclick="closeModal()"></button>
+            </div>
+            <div class="modal-body">
+              <form id="addBookForm">
+                <div class="mb-3">
+                  <label class="form-label">Title</label>
+                  <input type="text" class="form-control" id="bookTitle" required>
+                </div>
+                <div class="mb-3">
+                  <label class="form-label">ISBN</label>
+                  <input type="text" class="form-control" id="bookIsbn" required>
+                </div>
+                <div class="mb-3">
+                  <label class="form-label">Stock</label>
+                  <input type="number" class="form-control" id="bookStock" required min="0">
+                </div>
+              </form>
+            </div>
+            <div class="modal-footer">
+              <button type="button" class="btn btn-secondary" onclick="closeModal()">Close</button>
+              <button type="button" class="btn btn-primary" onclick="addBook()">Save</button>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="modal-backdrop fade show"></div>
+    `;
+  }
+
+  async function addBook() {
+    const book = {
+      title: document.getElementById('bookTitle').value,
+      isbn: document.getElementById('bookIsbn').value,
+      stock: parseInt(document.getElementById('bookStock').value)
+    };
+    
+    const response = await fetch('/api/books', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ book })
+    });
+    
+    if (response.ok) {
+      closeModal();
+      loadBooks();
+      alert('Book added successfully!');
+    } else {
+      const error = await response.json();
+      alert('Error: ' + error.errors.join(', '));
+    }
+  }
+
+  // Add Borrower
+  function showAddBorrowerModal() {
+    document.getElementById('modalContainer').innerHTML = `
+      <div class="modal fade show" style="display: block;" tabindex="-1">
+        <div class="modal-dialog">
+          <div class="modal-content">
+            <div class="modal-header">
+              <h5 class="modal-title">Add Borrower</h5>
+              <button type="button" class="btn-close" onclick="closeModal()"></button>
+            </div>
+            <div class="modal-body">
+              <form id="addBorrowerForm">
+                <div class="mb-3">
+                  <label class="form-label">Name</label>
+                  <input type="text" class="form-control" id="borrowerName" required>
+                </div>
+                <div class="mb-3">
+                  <label class="form-label">ID Card Number</label>
+                  <input type="text" class="form-control" id="borrowerIdCard" required>
+                </div>
+                <div class="mb-3">
+                  <label class="form-label">Email</label>
+                  <input type="email" class="form-control" id="borrowerEmail" required>
+                </div>
+              </form>
+            </div>
+            <div class="modal-footer">
+              <button type="button" class="btn btn-secondary" onclick="closeModal()">Close</button>
+              <button type="button" class="btn btn-primary" onclick="addBorrower()">Save</button>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="modal-backdrop fade show"></div>
+    `;
+  }
+
+  async function addBorrower() {
+    const borrower = {
+      name: document.getElementById('borrowerName').value,
+      id_card_number: document.getElementById('borrowerIdCard').value,
+      email: document.getElementById('borrowerEmail').value
+    };
+    
+    const response = await fetch('/api/borrowers', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ borrower })
+    });
+    
+    if (response.ok) {
+      closeModal();
+      loadBorrowers();
+      alert('Borrower added successfully!');
+    } else {
+      const error = await response.json();
+      alert('Error: ' + error.errors.join(', '));
+    }
+  }
+
+  // Borrow Book
+  async function showBorrowBookModal() {
+    const [booksRes, borrowersRes] = await Promise.all([
+      fetch('/api/books'),
+      fetch('/api/borrowers')
+    ]);
+    const books = await booksRes.json();
+    const borrowers = await borrowersRes.json();
+    
+    const availableBooks = books.filter(b => b.available);
+    const availableBorrowers = borrowers.filter(b => b.can_borrow);
+    
+    document.getElementById('modalContainer').innerHTML = `
+      <div class="modal fade show" style="display: block;" tabindex="-1">
+        <div class="modal-dialog">
+          <div class="modal-content">
+            <div class="modal-header">
+              <h5 class="modal-title">Borrow Book</h5>
+              <button type="button" class="btn-close" onclick="closeModal()"></button>
+            </div>
+            <div class="modal-body">
+              <form id="borrowBookForm">
+                <div class="mb-3">
+                  <label class="form-label">Book</label>
+                  <select class="form-control" id="loanBook" required>
+                    <option value="">Select a book</option>
+                    ${availableBooks.map(b => `<option value="${b.id}">${b.title} (${b.available_stock} available)</option>`).join('')}
+                  </select>
+                </div>
+                <div class="mb-3">
+                  <label class="form-label">Borrower</label>
+                  <select class="form-control" id="loanBorrower" required>
+                    <option value="">Select a borrower</option>
+                    ${availableBorrowers.map(b => `<option value="${b.id}">${b.name} (${b.id_card_number})</option>`).join('')}
+                  </select>
+                </div>
+                <div class="mb-3">
+                  <label class="form-label">Due Date (max 30 days)</label>
+                  <input type="date" class="form-control" id="loanDueDate" required>
+                </div>
+                <div class="alert alert-info">
+                  <small>Note: Loan period cannot exceed 30 days. Borrower must not have any active loans.</small>
+                </div>
+              </form>
+            </div>
+            <div class="modal-footer">
+              <button type="button" class="btn btn-secondary" onclick="closeModal()">Close</button>
+              <button type="button" class="btn btn-primary" onclick="borrowBook()">Borrow</button>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="modal-backdrop fade show"></div>
+    `;
+    
+    // Set default due date to 30 days from now
+    const defaultDueDate = new Date();
+    defaultDueDate.setDate(defaultDueDate.getDate() + 30);
+    document.getElementById('loanDueDate').value = defaultDueDate.toISOString().split('T')[0];
+  }
+
+  async function borrowBook() {
+    const loan = {
+      book_id: parseInt(document.getElementById('loanBook').value),
+      borrower_id: parseInt(document.getElementById('loanBorrower').value),
+      due_date: document.getElementById('loanDueDate').value
+    };
+    
+    const response = await fetch('/api/loans', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ loan })
+    });
+    
+    if (response.ok) {
+      closeModal();
+      loadBooks();
+      loadBorrowers();
+      loadLoans();
+      alert('Book borrowed successfully!');
+    } else {
+      const error = await response.json();
+      alert('Error: ' + error.errors.join(', '));
+    }
+  }
+
+  // Return Book
+  async function returnBook(loanId) {
+    if (!confirm('Are you sure you want to return this book?')) return;
+    
+    const response = await fetch(`/api/loans/${loanId}/return_book`, {
+      method: 'POST'
+    });
+    
+    if (response.ok) {
+      loadBooks();
+      loadBorrowers();
+      loadLoans();
+      alert('Book returned successfully!');
+    } else {
+      const error = await response.json();
+      alert('Error: ' + error.error);
+    }
+  }
+
+  // Delete functions
+  async function deleteBook(id) {
+    if (!confirm('Are you sure you want to delete this book?')) return;
+    
+    const response = await fetch(`/api/books/${id}`, { method: 'DELETE' });
+    if (response.ok) {
+      loadBooks();
+      alert('Book deleted successfully!');
+    } else {
+      const error = await response.json();
+      alert('Error: ' + error.error);
+    }
+  }
+
+  async function deleteBorrower(id) {
+    if (!confirm('Are you sure you want to delete this borrower?')) return;
+    
+    const response = await fetch(`/api/borrowers/${id}`, { method: 'DELETE' });
+    if (response.ok) {
+      loadBorrowers();
+      alert('Borrower deleted successfully!');
+    } else {
+      const error = await response.json();
+      alert('Error: ' + error.error);
+    }
+  }
+
+  function closeModal() {
+    document.getElementById('modalContainer').innerHTML = '';
+  }
+</script>
